@@ -27,6 +27,7 @@ const corsOptions = {
         Frontend_URL,
         "https://trytrakora.com",
         "https://www.trytrakora.com",
+        "https://trytrakora-web.vercel.app",
         "http://localhost:3000",
     ],
     credentials: true, // allow Authorization headers
