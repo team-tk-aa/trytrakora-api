@@ -12,7 +12,7 @@ export const createLead = async (
   next: NextFunction
 ) => {
   try {
-    const { gymName, ownerName, phone, email } = req.body;
+    const { gymName, ownerName, phone, email, currentMembers, message } = req.body;
 
     if (!gymName || !ownerName || !phone || !email) {
       return next(new ErrorHandler("All fields are required", 400));
@@ -23,6 +23,8 @@ export const createLead = async (
       ownerName,
       phone,
       email,
+      currentMembers,
+      message,
     });
 
     res.status(201).json({

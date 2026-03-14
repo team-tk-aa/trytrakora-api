@@ -5,6 +5,8 @@ export interface ILead extends Document {
   ownerName: string;
   phone: string;
   email: string;
+  currentMembers?: string;
+  message?: string;
   status: "new" | "contacted" | "converted";
   createdAt: Date;
   updatedAt: Date;
@@ -17,6 +19,8 @@ const LeadSchema = new Schema<ILead>(
     ownerName: { type: String, required: true },
     phone: { type: String, required: true },
     email: { type: String, required: true },
+    currentMembers: { type: String },
+    message: { type: String },
     status: {
       type: String,
       enum: ["new", "contacted", "converted"],
