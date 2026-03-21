@@ -7,6 +7,8 @@ export interface IUser extends Document {
     passwordHash: string;
     role: typeof ROLES[number];
     gymId: Types.ObjectId;
+    otpCode?: string;
+    otpExpires?: Date;
     comparePassword(candidate: string): Promise<boolean>;
 }
 
@@ -36,6 +38,8 @@ const UserSchema = new Schema<IUser>(
             },
             index: true,
         },
+        otpCode: { type: String },
+        otpExpires: { type: Date },
     },
     { timestamps: true }
 );

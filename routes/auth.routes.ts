@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { login } from '../controllers/auth.controller';
+import { login, forgotPassword, verifyOtp, resetPassword } from '../controllers/auth.controller';
 
 const authRouter = Router();
 
-// public endpoints for authentication
-
 authRouter.post('/auth/login', login);
+authRouter.post('/auth/forgot-password', forgotPassword);
+authRouter.post('/auth/verify-otp', verifyOtp);
+authRouter.post('/auth/reset-password', resetPassword);
 
 export default authRouter;
