@@ -6,6 +6,8 @@ export interface IGym extends Document {
   phone: string;
   email: string;
   subscriptionStatus: "active" | "inactive";
+  subscriptionFee: number;
+  subscriptionDueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +23,8 @@ const GymSchema = new Schema<IGym>(
       enum: ["active", "inactive"],
       default: "active",
     },
+    subscriptionFee: { type: Number, default: 0 },
+    subscriptionDueDate: { type: Date },
   },
   { timestamps: true }
 );

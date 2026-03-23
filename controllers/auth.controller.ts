@@ -47,7 +47,12 @@ console.log("Login attempt for email:", email, user); // Debug log
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
-    res.status(200).json({ accessToken, refreshToken });
+    res.status(200).json({
+      accessToken,
+      refreshToken,
+      role: user.role,
+      gymId: user.gymId?.toString() ?? null,
+    });
   } catch (err) {
     next(err);
   }

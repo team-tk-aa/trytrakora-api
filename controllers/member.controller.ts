@@ -3,6 +3,7 @@ import { AuthRequest } from "../middleware/auth.middleware";
 import Member from "../models/Member";
 import ErrorHandler from "../utils/ErrorHandler";
 import Plan from "../models/Plan";
+import Renewal from "../models/Renewal";
 
 export const createMember = async (
   req: AuthRequest,
@@ -53,6 +54,16 @@ export const createMember = async (
 
       startDate,
       endDate
+    });
+
+    // Record initial enrollment as a renewal so revenue is tracked
+    await Renewal.create({
+      gymId,
+      memberId: member._id,
+      previousEndDate: startDate,
+      newEndDate: endDate,
+      amount: finalAmount,
+      renewedOn: startDate,
     });
 
     res.status(201).json({ member });
