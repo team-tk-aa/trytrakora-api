@@ -38,7 +38,7 @@ export const createMember = async (
 
     const planPrice = plan.price;
 
-    const finalAmount = planPrice - discount;
+    const finalAmount = Math.max(0, planPrice - (planPrice * discount / 100));
 
     const member = await Member.create({
       gymId,
@@ -63,6 +63,8 @@ export const createMember = async (
       previousEndDate: startDate,
       newEndDate: endDate,
       amount: finalAmount,
+      planName: plan.name,
+      type: 'new',
       renewedOn: startDate,
     });
 
@@ -90,12 +92,18 @@ export const getMembers = async (req: AuthRequest, res: Response, next: NextFunc
 export const updateMember = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
 
+        const { name, phone, email } = req.body;
+        const updates: Record<string, any> = {};
+        if (name !== undefined) updates.name = name;
+        if (phone !== undefined) updates.phone = phone;
+        if (email !== undefined) updates.email = email;
+
         const member = await Member.findOneAndUpdate(
             {
                 _id: req.params.id,
                 gymId: req.user?.gymId
             },
-            req.body,
+            updates,
             { new: true }
         );
 
@@ -108,6 +116,83 @@ export const updateMember = async (req: AuthRequest, res: Response, next: NextFu
     } catch (err) {
         next(err);
     }
+};
+
+export const bulkImportMembers = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const gymId = req.user?.gymId;
+    const { members: rows } = req.body;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return next(new ErrorHandler("members array is required", 400));
+    }
+
+    const succeeded: number[] = [];
+    const errors: { row: number; name: string; reason: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const { name, phone, planId, discount = 0 } = rows[i];
+      try {
+        if (!name || !phone || !planId) {
+          throw new Error("name, phone and planId are required");
+        }
+
+        const plan = await Plan.findOne({ _id: planId, gymId });
+        if (!plan) throw new Error("Plan not found");
+
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(startDate.getDate() + plan.durationDays);
+
+        const planPrice = plan.price;
+        const finalAmount = Math.max(0, planPrice - (planPrice * discount / 100));
+
+        const member = await Member.create({
+          gymId,
+          name,
+          phone,
+          planId: plan._id,
+          planName: plan.name,
+          planPrice,
+          discount,
+          finalAmount,
+          startDate,
+          endDate,
+        });
+
+        await Renewal.create({
+          gymId,
+          memberId: member._id,
+          previousEndDate: startDate,
+          newEndDate: endDate,
+          amount: finalAmount,
+          planName: plan.name,
+          type: 'new',
+          renewedOn: startDate,
+        });
+
+        succeeded.push(i + 1);
+      } catch (err: any) {
+        errors.push({
+          row: i + 1,
+          name: rows[i].name || `Row ${i + 1}`,
+          reason: err.message || "Unknown error",
+        });
+      }
+    }
+
+    res.status(200).json({
+      succeeded: succeeded.length,
+      failed: errors.length,
+      errors,
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const getExpiringMembers = async (req: AuthRequest, res: Response, next: NextFunction) => {

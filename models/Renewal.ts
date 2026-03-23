@@ -6,6 +6,8 @@ export interface IRenewal extends Document {
   previousEndDate: Date;
   newEndDate: Date;
   amount: number;
+  planName: string;
+  type: 'new' | 'renewal';
   renewedOn: Date;
 }
 
@@ -34,6 +36,15 @@ const RenewalSchema = new Schema<IRenewal>(
     amount: {
       type: Number,
       required: true
+    },
+    planName: {
+      type: String,
+      default: ''
+    },
+    type: {
+      type: String,
+      enum: ['new', 'renewal'],
+      default: 'renewal'
     },
     renewedOn: {
       type: Date,

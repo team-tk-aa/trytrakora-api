@@ -5,6 +5,7 @@ export interface IMember extends Document {
 
   name: string;
   phone: string;
+  email?: string;
 
   planId: Types.ObjectId;
   planName: string;
@@ -45,6 +46,12 @@ const MemberSchema = new Schema<IMember>(
       type: String,
       required: true,
       index: true
+    },
+
+    email: {
+      type: String,
+      trim: true,
+      default: ''
     },
 
     planId: {
