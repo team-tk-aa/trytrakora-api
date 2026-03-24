@@ -45,13 +45,14 @@ const MemberSchema = new Schema<IMember>(
     phone: {
       type: String,
       required: true,
-      index: true
+      trim: true
     },
 
     email: {
       type: String,
       trim: true,
-      default: ''
+      sparse: true,
+      default: undefined
     },
 
     planId: {
@@ -112,9 +113,9 @@ const MemberSchema = new Schema<IMember>(
   { timestamps: true }
 );
 
-// useful indexes
-MemberSchema.index({ gymId: 1, phone: 1 });
-MemberSchema.index({ gymId: 1, endDate: 1 });
+// Per-gym uniqueness — a phone/email can exist in multiple gyms but not twice in the same gym
 MemberSchema.index({ gymId: 1, phone: 1 }, { unique: true });
+MemberSchema.index({ gymId: 1, email: 1 }, { unique: true, sparse: true });
+MemberSchema.index({ gymId: 1, endDate: 1 });
 
 export default model<IMember>("Member", MemberSchema);

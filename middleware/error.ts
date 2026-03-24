@@ -18,7 +18,13 @@ export const ErrorMiddleware = (
 
     //duplicate key error
     if (err.code === 11000) {
-        const message = `Duplicate ${Object.keys(err.keyValue)} entered`;
+        const field = Object.keys(err.keyValue ?? {})[0];
+        let message = `Duplicate ${field} entered`;
+        if (field === 'phone') {
+            message = 'A member with this phone number already exists in this gym';
+        } else if (field === 'email') {
+            message = 'A member with this email already exists in this gym';
+        }
         err = new ErrorHandler(message, 400);
     }
 

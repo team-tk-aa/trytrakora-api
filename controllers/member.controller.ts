@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
 import { AuthRequest } from "../middleware/auth.middleware";
 import Member from "../models/Member";
 import ErrorHandler from "../utils/ErrorHandler";
@@ -12,13 +13,25 @@ export const createMember = async (
 ) => {
   try {
 
-    const { name, phone, planId, discount = 0 } = req.body;
+    const { name, phone, email, planId, discount = 0 } = req.body;
 
     if (!name || !phone || !planId) {
       return next(new ErrorHandler("name, phone and planId are required", 400));
     }
 
     const gymId = req.user?.gymId;
+
+    // Per-gym duplicate checks (explicit for clear error messages)
+    const phoneExists = await Member.exists({ gymId, phone });
+    if (phoneExists) {
+      return next(new ErrorHandler("A member with this phone number already exists in this gym", 400));
+    }
+    if (email) {
+      const emailExists = await Member.exists({ gymId, email });
+      if (emailExists) {
+        return next(new ErrorHandler("A member with this email already exists in this gym", 400));
+      }
+    }
 
     // find plan
     const plan = await Plan.findOne({
@@ -44,6 +57,8 @@ export const createMember = async (
       gymId,
       name,
       phone,
+      // store undefined rather than empty string so sparse index works correctly
+      email: email || undefined,
 
       planId: plan._id,
       planName: plan.name,
@@ -95,8 +110,28 @@ export const updateMember = async (req: AuthRequest, res: Response, next: NextFu
         const { name, phone, email } = req.body;
         const updates: Record<string, any> = {};
         if (name !== undefined) updates.name = name;
-        if (phone !== undefined) updates.phone = phone;
-        if (email !== undefined) updates.email = email;
+
+        const gymId = new Types.ObjectId(req.user!.gymId);
+        const memberId = new Types.ObjectId(req.params.id as string);
+
+        if (phone !== undefined) {
+            const conflict = await Member.exists({ gymId, phone, _id: { $ne: memberId } });
+            if (conflict) {
+                return next(new ErrorHandler("A member with this phone number already exists in this gym", 400));
+            }
+            updates.phone = phone;
+        }
+
+        if (email !== undefined) {
+            const normalized = email || undefined;
+            if (normalized) {
+                const conflict = await Member.exists({ gymId, email: normalized, _id: { $ne: memberId } });
+                if (conflict) {
+                    return next(new ErrorHandler("A member with this email already exists in this gym", 400));
+                }
+            }
+            updates.email = normalized;
+        }
 
         const member = await Member.findOneAndUpdate(
             {
@@ -135,10 +170,18 @@ export const bulkImportMembers = async (
     const errors: { row: number; name: string; reason: string }[] = [];
 
     for (let i = 0; i < rows.length; i++) {
-      const { name, phone, planId, discount = 0 } = rows[i];
+      const { name, phone, email, planId, discount = 0 } = rows[i];
       try {
         if (!name || !phone || !planId) {
           throw new Error("name, phone and planId are required");
+        }
+
+        const phoneExists = await Member.exists({ gymId, phone });
+        if (phoneExists) throw new Error("A member with this phone number already exists in this gym");
+
+        if (email) {
+          const emailExists = await Member.exists({ gymId, email });
+          if (emailExists) throw new Error("A member with this email already exists in this gym");
         }
 
         const plan = await Plan.findOne({ _id: planId, gymId });
@@ -155,6 +198,7 @@ export const bulkImportMembers = async (
           gymId,
           name,
           phone,
+          email: email || undefined,
           planId: plan._id,
           planName: plan.name,
           planPrice,
