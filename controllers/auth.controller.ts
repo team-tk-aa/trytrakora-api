@@ -192,3 +192,34 @@ export const resetPassword = async (
     next(err);
   }
 };
+
+/* ─── POST /auth/refresh ─────────────────────────────────────────────────── */
+export const refreshAccessToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return next(new ErrorHandler("Refresh token is required", 400));
+    }
+
+    let payload: any;
+    try {
+      payload = jwt.verify(refreshToken, process.env.JWT_SECRET!);
+    } catch {
+      return next(new ErrorHandler("Invalid or expired refresh token", 401));
+    }
+
+    const newAccessToken = generateAccessToken({
+      userId: payload.userId,
+      gymId: payload.gymId,
+      role: payload.role,
+    });
+
+    res.status(200).json({ accessToken: newAccessToken });
+  } catch (err) {
+    next(err);
+  }
+};

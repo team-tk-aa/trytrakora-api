@@ -9,7 +9,7 @@ interface TokenPayload {
 
 const secret: string = process.env.JWT_SECRET || 'change_this';
 const accessExpiresIn: string = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
-const refreshExpiresIn: string = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+const refreshExpiresIn: string = process.env.JWT_REFRESH_EXPIRES_IN || '15d';
 
 export const generateAccessToken = (payload: TokenPayload): string => {
   return jwt.sign(payload as jwt.JwtPayload, secret as jwt.Secret, { expiresIn: accessExpiresIn } as jwt.SignOptions);
