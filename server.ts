@@ -3,6 +3,7 @@ import { v2 as cloudinary } from "cloudinary";
 import connectDB from "./utils/db";
 require("dotenv").config();
 import http from "http";
+import "./jobs/renewalReminder.job";
 
 // Cloudinary config
 cloudinary.config({

@@ -46,7 +46,7 @@ const sendEmail = async (options: EmailOptions): Promise<void> => {
     const html = await ejs.renderFile(templatePath, data) as string;
 
     await transporter.sendMail({
-      from: `"Juris&Journa" <${process.env.SMTP_MAIL}>`,
+      from: `"TryTrakora" <${process.env.SMTP_MAIL}>`,
       to: email,
       subject,
       html,
