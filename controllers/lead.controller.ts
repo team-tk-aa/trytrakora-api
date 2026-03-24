@@ -4,6 +4,7 @@ import ErrorHandler from "../utils/ErrorHandler";
 import { AuthRequest } from "../middleware/auth.middleware";
 import Gym from "../models/Gym";
 import User from "../models/User";
+import sendEmail from "../utils/sendEmail";
 
 // Public - Create Lead
 export const createLead = async (
@@ -12,7 +13,7 @@ export const createLead = async (
   next: NextFunction
 ) => {
   try {
-    const { gymName, ownerName, phone, email, currentMembers, message } = req.body;
+    const { gymName, ownerName, phone, email, city, currentMembers, message } = req.body;
 
     if (!gymName || !ownerName || !phone || !email) {
       return next(new ErrorHandler("All fields are required", 400));
@@ -23,9 +24,31 @@ export const createLead = async (
       ownerName,
       phone,
       email,
+      city,
       currentMembers,
       message,
-    });
+    } as any);
+
+    // Notify admin about new lead (non-blocking — email failure must not fail the request)
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      sendEmail({
+        email: adminEmail,
+        subject: `New Lead: ${gymName} – ${ownerName}`,
+        template: "newLead.ejs",
+        data: {
+          gymName,
+          ownerName,
+          email,
+          phone,
+          city,
+          currentMembers,
+          message,
+          submittedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          adminUrl: `${process.env.CLIENT_URL}/secured/leads`,
+        },
+      }).catch((err) => console.error("[Email] New-lead notification failed:", err?.message));
+    }
 
     res.status(201).json({
       message: "Lead submitted successfully",
@@ -90,6 +113,21 @@ export const convertLead = async (
       role: "owner",
       gymId: gym._id,
     });
+
+    // Send welcome email (non-blocking — email failure must not fail the request)
+    const loginUrl = `${process.env.CLIENT_URL}/login`;
+    sendEmail({
+      email: lead.email,
+      subject: "Welcome to Trakora – Your Login Credentials",
+      template: "gymWelcome.ejs",
+      data: {
+        ownerName: lead.ownerName,
+        gymName: lead.gymName,
+        email: lead.email,
+        tempPassword: password,
+        loginUrl,
+      },
+    }).catch((err) => console.error("[Email] Welcome email failed:", err?.message));
 
     // Update Lead Status
     lead.status = "converted";
