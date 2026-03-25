@@ -2,10 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import User from "../models/User";
 import { generateAccessToken, generateRefreshToken } from "../utils/jwt";
 import ErrorHandler from "../utils/ErrorHandler";
+import sendEmail from "../utils/sendEmail";
 
 export const login = async (
   req: Request,
@@ -58,32 +58,6 @@ console.log("Login attempt for email:", email, user); // Debug log
   }
 };
 
-/* ─── Helper: send OTP email ────────────────────────────────────────────── */
-async function sendOtpEmail(to: string, otp: string) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST as string,
-    port: Number(process.env.SMTP_PORT),
-    secure: Number(process.env.SMTP_PORT) === 465,
-    auth: { user: process.env.SMTP_MAIL, pass: process.env.SMTP_PASSWORD },
-  });
-
-  await transporter.sendMail({
-    from: `"TryTrakora" <${process.env.SMTP_MAIL}>`,
-    to,
-    subject: "Your Password Reset OTP — TryTrakora",
-    html: `
-      <div style="font-family:sans-serif;max-width:420px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px">
-        <h2 style="margin-top:0;color:#1e293b">Password Reset</h2>
-        <p style="color:#475569">Use the OTP below to reset your TryTrakora account password. It expires in <strong>10 minutes</strong>.</p>
-        <div style="text-align:center;margin:28px 0">
-          <span style="display:inline-block;letter-spacing:10px;font-size:36px;font-weight:700;color:#2563eb;background:#eff6ff;padding:16px 24px;border-radius:8px">${otp}</span>
-        </div>
-        <p style="color:#94a3b8;font-size:13px">If you did not request a password reset, you can safely ignore this email.</p>
-      </div>
-    `,
-  });
-}
-
 /* ─── POST /auth/forgot-password ────────────────────────────────────────── */
 export const forgotPassword = async (
   req: Request,
@@ -106,7 +80,12 @@ export const forgotPassword = async (
     user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
     await user.save({ validateBeforeSave: false });
 
-    await sendOtpEmail(email, otp);
+    await sendEmail({
+      email,
+      subject: "Your Password Reset OTP — TryTrakora",
+      template: "otpEmail.ejs",
+      data: { otp },
+    });
 
     res.status(200).json({ message: "If that email exists, an OTP has been sent." });
   } catch (err) {
