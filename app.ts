@@ -1,6 +1,9 @@
 require("dotenv").config();
 import express, { Request, Response, NextFunction } from "express";
 export const app = express();
+
+// Trust the first proxy (required on Render, Railway, Heroku, etc.)
+app.set("trust proxy", 1);
 import cors from "cors";
 import { rateLimit } from "express-rate-limit";
 import { ErrorMiddleware } from "./middleware/error";

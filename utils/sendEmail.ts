@@ -1,62 +1,65 @@
 require("dotenv").config();
-import nodemailer, { Transporter } from "nodemailer";
-import ejs from "ejs";
-import path from "path";
+import nodeMailer, { Transporter } from 'nodemailer';
+import ejs from 'ejs';
+import path from 'path';
 
 interface EmailOptions {
-  email: string;
-  subject: string;
-  template: string;
-  data: any;
-  cc?: string;
-  bcc?: string;
+    email: string,
+    subject: string,
+    template: string,
+    data: any,
+    cc?: string,
+    bcc?: string // Added bcc as optional
 }
 
 const sendEmail = async (options: EmailOptions): Promise<void> => {
-  const transporter: Transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST as string,           // e.g., "smtp.gmail.com"
-    port: Number(process.env.SMTP_PORT),
-    secure: Number(process.env.SMTP_PORT) === 465,       // TLS via STARTTLS
-    auth: {
-      user: process.env.SMTP_MAIL,       // Gmail address
-      pass: process.env.SMTP_PASSWORD,   // App password
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-  });
-
-
-  let { email, subject, template, data, cc, bcc } = options;
-
-  // ✅ Always BCC admin
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (adminEmail) {
-    if (!bcc) {
-      bcc = adminEmail;
-    } else if (!bcc.includes(adminEmail)) {
-      bcc = `${bcc},${adminEmail}`;
-    }
-  }
-
-  // Template path
-  const templatePath = path.join(__dirname, "../mails", template);
-
-  try {
-    const html = await ejs.renderFile(templatePath, data) as string;
-
-    await transporter.sendMail({
-      from: `"TryTrakora" <${process.env.SMTP_MAIL}>`,
-      to: email,
-      subject,
-      html,
-      cc,
-      bcc,
+    const transporter: Transporter = nodeMailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        auth: {
+            user: process.env.SMTP_MAIL,
+            pass: process.env.SMTP_PASSWORD
+        }
     });
-  } catch (error) {
-    console.error("Email sending failed:", error);
-    throw error;
-  }
+
+    let { email, subject, template, data, cc, bcc } = options;
+    // Always BCC admin email unless already present
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+        if (!bcc) {
+            bcc = adminEmail;
+        } else if (typeof bcc === 'string' && !bcc.split(',').map(e => e.trim()).includes(adminEmail)) {
+            bcc = bcc + ',' + adminEmail;
+        }
+    }
+
+    //get the template path
+    const templatePath = path.join(__dirname, "../mails/", template);
+    //render the email template
+
+    console.log("templatePath", templatePath)
+    console.log("email", email)
+    console.log("SMTP_HOST:", process.env.SMTP_HOST);
+    console.log("SMTP_PORT:", process.env.SMTP_PORT);
+    console.log("SMTP_MAIL:", process.env.SMTP_MAIL);
+    console.log("SMTP_PASSWORD:", process.env.SMTP_PASSWORD ? "****" : "NOT SET");
+    try {
+        const html: string = await ejs.renderFile(templatePath, (data));
+        const mailOptions = {
+            from: `"TryTrakora" <${process.env.SMTP_MAIL}>`, // Add a display name
+            to: email,
+            subject,
+            html,
+            cc,
+            bcc
+        };
+        // Send the email
+        await transporter.sendMail(mailOptions);
+
+    } catch (error: any) {
+        console.log(error)
+    }
+
 };
 
 export default sendEmail;
