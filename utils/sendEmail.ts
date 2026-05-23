@@ -15,7 +15,8 @@ interface EmailOptions {
 const sendEmail = async (options: EmailOptions): Promise<void> => {
     const transporter: Transporter = nodeMailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
+        port: parseInt(process.env.SMTP_PORT || '465'),
+        secure: true,
         auth: {
             user: process.env.SMTP_MAIL,
             pass: process.env.SMTP_PASSWORD
@@ -55,7 +56,7 @@ const sendEmail = async (options: EmailOptions): Promise<void> => {
         };
         // Send the email
         await transporter.sendMail(mailOptions);
-
+        console.log("Email sent successfully to", email);
     } catch (error: any) {
         console.log(error)
     }
