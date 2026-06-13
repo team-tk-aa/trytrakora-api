@@ -14,6 +14,8 @@ import memberRouter from "./routes/member.routes";
 import dashboardRouter from "./routes/dashboard.routes";
 import planRouter from "./routes/plan.routes";
 import renewalRouter from "./routes/renewal.routes";
+import dns from "dns";
+import net from "net";
 
 const bodyParser = require("body-parser");
 
@@ -52,6 +54,29 @@ app.get("/health", (req: Request, res: Response) => {
         status: true,
         message: "API is working",
     });
+});
+
+dns.lookup("smtpout.secureserver.net", (err, address) => {
+  console.log("DNS Lookup:", err, address);
+});
+
+app.get("/smtp-test", async (req, res) => {
+  dns.lookup("smtpout.secureserver.net", (err, address) => {
+    console.log("DNS Lookup:", err, address);
+  });
+
+  const socket = net.createConnection(587, "smtpout.secureserver.net");
+
+  socket.on("connect", () => {
+    console.log("CONNECTED TO SMTP");
+    socket.end();
+  });
+
+  socket.on("error", (err) => {
+    console.log("SMTP ERROR:", err);
+  });
+
+  res.send("Test started");
 });
 
 // API routes
