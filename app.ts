@@ -57,26 +57,31 @@ app.get("/health", (req: Request, res: Response) => {
 });
 
 dns.lookup("smtpout.secureserver.net", (err, address) => {
-  console.log("DNS Lookup:", err, address);
+    console.log("DNS Lookup:", err, address);
 });
 
-app.get("/smtp-test", async (req, res) => {
-  dns.lookup("smtpout.secureserver.net", (err, address) => {
-    console.log("DNS Lookup:", err, address);
-  });
+app.get("/smtp-test", (req, res) => {
+    const socket = net.createConnection({
+        host: "smtpout.secureserver.net",
+        port: 587,
+        timeout: 10000
+    });
 
-  const socket = net.createConnection(587, "smtpout.secureserver.net");
+    socket.on("connect", () => {
+        console.log("CONNECTED TO SMTP PORT 587");
+        socket.end();
+    });
 
-  socket.on("connect", () => {
-    console.log("CONNECTED TO SMTP");
-    socket.end();
-  });
+    socket.on("timeout", () => {
+        console.log("SMTP CONNECTION TIMED OUT");
+        socket.destroy();
+    });
 
-  socket.on("error", (err) => {
-    console.log("SMTP ERROR:", err);
-  });
+    socket.on("error", (err) => {
+        console.log("SMTP CONNECTION ERROR:", err);
+    });
 
-  res.send("Test started");
+    res.send("SMTP test started");
 });
 
 // API routes

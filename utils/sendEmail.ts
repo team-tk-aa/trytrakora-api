@@ -13,14 +13,26 @@ interface EmailOptions {
 }
 
 const sendEmail = async (options: EmailOptions): Promise<void> => {
-    const transporter: Transporter = nodeMailer.createTransport({
+    const transporter = nodeMailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
         auth: {
             user: process.env.SMTP_MAIL,
             pass: process.env.SMTP_PASSWORD
         }
     });
+
+    try {
+        await transporter.verify();
+        console.log("SMTP VERIFIED");
+    } catch (err) {
+        console.log("VERIFY ERROR:", err);
+    }
 
     let { email, subject, template, data, cc, bcc } = options;
     // Always BCC admin email unless already present
