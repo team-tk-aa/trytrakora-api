@@ -1,77 +1,117 @@
-require("dotenv").config();
-import nodeMailer, { Transporter } from 'nodemailer';
-import ejs from 'ejs';
-import path from 'path';
+import axios from "axios";
+import nodemailer from "nodemailer";
+import ejs from "ejs";
+import path from "path";
 
 interface EmailOptions {
-    email: string,
-    subject: string,
-    template: string,
-    data: any,
-    cc?: string,
-    bcc?: string // Added bcc as optional
+    email: string;
+    subject: string;
+    template: string;
+    data: any;
+    cc?: string;
+    bcc?: string;
 }
 
-const sendEmail = async (options: EmailOptions): Promise<void> => {
-    const transporter = nodeMailer.createTransport({
+const sendViaSMTP = async (mailOptions: any) => {
+    const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: 465,
+        port: Number(process.env.SMTP_PORT || 465),
         secure: true,
         requireTLS: true,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
         auth: {
             user: process.env.SMTP_MAIL,
-            pass: process.env.SMTP_PASSWORD
-        }
+            pass: process.env.SMTP_PASSWORD,
+        },
     });
 
-    try {
-        await transporter.verify();
-        console.log("SMTP VERIFIED");
-    } catch (err) {
-        console.log("VERIFY ERROR:", err);
+    await transporter.sendMail(mailOptions);
+};
+
+const sendViaMSG91 = async (mailOptions: any) => {
+    const payload: any = {
+        to: [
+            {
+                email: mailOptions.to,
+            },
+        ],
+        from: {
+            email: process.env.MSG91_FROM_EMAIL,
+            name: "TryTrakora",
+        },
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+    };
+
+    if (mailOptions.cc) {
+        payload.cc = mailOptions.cc.split(",").map((email: string) => ({
+            email: email.trim(),
+        }));
     }
 
+    if (mailOptions.bcc) {
+        payload.bcc = mailOptions.bcc.split(",").map((email: string) => ({
+            email: email.trim(),
+        }));
+    }
+
+    await axios.post(
+        "https://control.msg91.com/api/v5/email/send",
+        payload,
+        {
+            headers: {
+                authkey: process.env.MSG91_AUTH_KEY,
+                "Content-Type": "application/json",
+            },
+        }
+    );
+};
+
+const sendEmail = async (options: EmailOptions): Promise<void> => {
     let { email, subject, template, data, cc, bcc } = options;
-    // Always BCC admin email unless already present
+
+    // Add admin BCC
     const adminEmail = process.env.ADMIN_EMAIL;
     if (adminEmail) {
         if (!bcc) {
             bcc = adminEmail;
-        } else if (typeof bcc === 'string' && !bcc.split(',').map(e => e.trim()).includes(adminEmail)) {
-            bcc = bcc + ',' + adminEmail;
+        } else if (!bcc.split(",").map(e => e.trim()).includes(adminEmail)) {
+            bcc += `,${adminEmail}`;
         }
     }
 
-    //get the template path
     const templatePath = path.join(__dirname, "../mails/", template);
-    //render the email template
+    const html = await ejs.renderFile(templatePath, data);
 
-    console.log("templatePath", templatePath)
-    console.log("email", email)
-    console.log("SMTP_HOST:", process.env.SMTP_HOST);
-    console.log("SMTP_PORT:", process.env.SMTP_PORT);
-    console.log("SMTP_MAIL:", process.env.SMTP_MAIL);
-    console.log("SMTP_PASSWORD:", process.env.SMTP_PASSWORD ? "****" : "NOT SET");
+    const mailOptions = {
+        from: `"TryTrakora" <${process.env.SMTP_MAIL || process.env.MSG91_FROM_EMAIL}>`,
+        to: email,
+        subject,
+        html,
+        cc,
+        bcc,
+    };
+
+    const provider = (process.env.EMAIL_PROVIDER || "SMTP").toUpperCase();
+
     try {
-        const html: string = await ejs.renderFile(templatePath, (data));
-        const mailOptions = {
-            from: `"TryTrakora" <${process.env.SMTP_MAIL}>`, // Add a display name
-            to: email,
-            subject,
-            html,
-            cc,
-            bcc
-        };
-        // Send the email
-        await transporter.sendMail(mailOptions);
+        switch (provider) {
+            case "MSG91":
+                console.log("Sending email via MSG91");
+                await sendViaMSG91(mailOptions);
+                break;
 
-    } catch (error: any) {
-        console.log(error)
+            case "SMTP":
+            default:
+                console.log("Sending email via SMTP");
+                await sendViaSMTP(mailOptions);
+                break;
+        }
+
+        console.log("Email sent successfully");
+    } catch (err) {
+        console.error("Email sending failed:", err);
+        throw err;
     }
-
 };
 
 export default sendEmail;
