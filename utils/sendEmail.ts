@@ -27,43 +27,45 @@ const sendViaSMTP = async (mailOptions: any) => {
     await transporter.sendMail(mailOptions);
 };
 
-const sendViaMSG91 = async (mailOptions: any) => {
+const sendViaResend = async (mailOptions: any) => {
+    const normalizeRecipients = (value?: string | string[]) => {
+        if (!value) return undefined;
+
+        const emails = Array.isArray(value)
+            ? value
+            : value.split(",").map((email: string) => email.trim());
+
+        return emails.filter(Boolean);
+    };
+
     const payload: any = {
-        to: [
-            {
-                email: mailOptions.to,
-            },
-        ],
-        from: {
-            email: process.env.MSG91_FROM_EMAIL,
-            name: "TryTrakora",
-        },
+        from: mailOptions.from,
+        to: normalizeRecipients(mailOptions.to) || [],
         subject: mailOptions.subject,
         html: mailOptions.html,
     };
 
-    if (mailOptions.cc) {
-        payload.cc = mailOptions.cc.split(",").map((email: string) => ({
-            email: email.trim(),
-        }));
+    const ccList = normalizeRecipients(mailOptions.cc);
+    const bccList = normalizeRecipients(mailOptions.bcc);
+
+    if (ccList?.length) {
+        payload.cc = ccList;
     }
 
-    if (mailOptions.bcc) {
-        payload.bcc = mailOptions.bcc.split(",").map((email: string) => ({
-            email: email.trim(),
-        }));
+    if (bccList?.length) {
+        payload.bcc = bccList;
     }
 
-    await axios.post(
-        "https://control.msg91.com/api/v5/email/send",
-        payload,
-        {
-            headers: {
-                authkey: process.env.MSG91_AUTH_KEY,
-                "Content-Type": "application/json",
-            },
-        }
-    );
+    if (process.env.RESEND_REPLY_TO) {
+        payload.reply_to = process.env.RESEND_REPLY_TO;
+    }
+
+    await axios.post("https://api.resend.com/emails", payload, {
+        headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+        },
+    });
 };
 
 const sendEmail = async (options: EmailOptions): Promise<void> => {
@@ -83,7 +85,7 @@ const sendEmail = async (options: EmailOptions): Promise<void> => {
     const html = await ejs.renderFile(templatePath, data);
 
     const mailOptions = {
-        from: `"TryTrakora" <${process.env.SMTP_MAIL || process.env.MSG91_FROM_EMAIL}>`,
+        from: process.env.RESEND_FROM_EMAIL || `"TryTrakora" <${process.env.SMTP_MAIL || process.env.MSG91_FROM_EMAIL}>`,
         to: email,
         subject,
         html,
@@ -91,13 +93,13 @@ const sendEmail = async (options: EmailOptions): Promise<void> => {
         bcc,
     };
 
-    const provider = (process.env.EMAIL_PROVIDER || "SMTP").toUpperCase();
+    const provider = (process.env.EMAIL_PROVIDER || "RESEND").toUpperCase();
 
     try {
         switch (provider) {
-            case "MSG91":
-                console.log("Sending email via MSG91");
-                await sendViaMSG91(mailOptions);
+            case "RESEND":
+                console.log("Sending email via Resend");
+                await sendViaResend(mailOptions);
                 break;
 
             case "SMTP":
@@ -108,8 +110,15 @@ const sendEmail = async (options: EmailOptions): Promise<void> => {
         }
 
         console.log("Email sent successfully");
-    } catch (err) {
-        console.error("Email sending failed:", err);
+    } catch (err: unknown) {
+        if (axios.isAxiosError(err)) {
+            console.error("Email provider error status:", err.response?.status);
+            console.error("Email provider error data:", err.response?.data);
+            console.error("Email provider error headers:", err.response?.headers);
+            console.error("Email provider error message:", err.message);
+        } else {
+            console.error("Email sending failed:", err);
+        }
         throw err;
     }
 };
